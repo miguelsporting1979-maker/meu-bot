@@ -132,12 +132,14 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def scheduler(context):
     global sinal_ativo
 
-    sinal_ativo = False
+    # 🔒 impede duplicados
+    if sinal_ativo:
+        return
 
     if dentro_horario(FREE_HORAS):
         await enviar_sinal(context, CANAL_FREE)
 
-    if dentro_horario(VIP_HORAS):
+    elif dentro_horario(VIP_HORAS):
         await enviar_sinal(context, CANAL_VIP)
 
 async def bom_dia(context):
