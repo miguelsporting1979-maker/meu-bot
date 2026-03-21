@@ -1,9 +1,10 @@
 import random
+import os
 from datetime import datetime, time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
-TOKEN = "8441283882:AAG1nm487Z877jTIvPVsYjfW-BYS6dBE1bQ"
+TOKEN = os.getenv("TOKEN")
 
 CANAL_FREE = -1003731784397
 CANAL_VIP = -1003770413249
@@ -14,7 +15,6 @@ VIP_HORAS = [(9,10),(11,12),(15,16),(17,18),(20,21),(22,23)]
 sinal_ativo = False
 em_gale = False
 
-# CONTADORES
 wins_azul = 0
 wins_vermelho = 0
 loss_azul = 0
@@ -198,9 +198,9 @@ def main():
     app.job_queue.run_daily(bom_dia, time=time(8,30))
     app.job_queue.run_daily(relatorio_dia, time=time(23,10))
 
-    print("🔥 BOT FINAL NÍVEL EMPRESA ATIVO")
+    print("🔥 BOT ATIVO")
 
     app.run_polling()
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     main()
