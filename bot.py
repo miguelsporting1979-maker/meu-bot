@@ -88,8 +88,6 @@ async def enviar_sinal(context, canal):
     ultimo_sinal_tempo = agora()
 
 async def enviar_aviso(context):
-    global ultimo_aviso_tempo
-
     if ultimo_sinal_tempo and (agora() - ultimo_sinal_tempo).seconds < 120:
         return
 
@@ -104,11 +102,7 @@ Jogue com responsabilidade."""
     await context.bot.send_message(chat_id=CANAL_FREE, text=msg)
     await context.bot.send_message(chat_id=CANAL_VIP, text=msg)
 
-    ultimo_aviso_tempo = agora()
-
 async def enviar_vip(context):
-    global ultimo_vip_tempo
-
     if not dentro_horario(FREE_HORAS):
         return
 
@@ -124,8 +118,6 @@ async def enviar_vip(context):
 👉 Entra no VIP e leva o jogo a outro nível"""
 
     await context.bot.send_message(chat_id=CANAL_FREE, text=msg)
-
-    ultimo_vip_tempo = agora()
 
 async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global sinal_ativo, sequencia
@@ -185,7 +177,7 @@ async def scheduler(context):
         elif dentro_horario(VIP_HORAS):
             await enviar_sinal(context, CANAL_VIP)
 
-async def main_async():
+def main():
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CallbackQueryHandler(callback))
@@ -195,8 +187,8 @@ async def main_async():
     app.job_queue.run_repeating(enviar_vip, interval=1800, first=900)
 
     print("🔥 BOT ATIVO")
-    await app.run_polling()
+
+    app.run_polling()
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main_async())
+    main()
