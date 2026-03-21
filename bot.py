@@ -1,5 +1,6 @@
 import random
 from datetime import datetime, time
+import pytz
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
@@ -22,7 +23,8 @@ empates = 0
 sequencia = 0
 
 def dentro_horario(lista):
-    agora = datetime.now().hour
+    tz = pytz.timezone("Europe/Lisbon")
+    agora = datetime.now(tz).hour
     return any(i <= agora < f for i,f in lista)
 
 def botoes_iniciais():
