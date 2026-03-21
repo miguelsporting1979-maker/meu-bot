@@ -4,7 +4,7 @@ from datetime import datetime, time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
-TOKEN = os.getenv("TELEGRAM_TOKEN")
+TOKEN = os.getenv("8441283882:AAG1nm487Z877jTIvPVsYjfW-BYS6dBE1bQ")
 
 CANAL_FREE = -1003731784397
 CANAL_VIP = -1003770413249
