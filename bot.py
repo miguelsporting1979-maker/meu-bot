@@ -3,7 +3,7 @@ from datetime import datetime, time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
-TOKEN = "8441283882:AAGWtfuqmZZKBK3aUDT-P-V6sxHTVSgT24C"
+TOKEN = "8441283882:AAGWtfuqmZZKBK3aUDT-P-V6sxHTVSgT24c"
 
 CANAL_FREE = -1003731784397
 CANAL_VIP = -1003770413249
@@ -201,5 +201,5 @@ def main():
 
     app.run_polling()
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
