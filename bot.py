@@ -3,7 +3,7 @@ from datetime import datetime, time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
-TOKEN = "123:ABC"
+TOKEN = "8667107306:AAHsMiPG9oslWJ-z2_VNPtZvptsnn7o70k4"
 
 CANAL_FREE = -1003731784397
 CANAL_VIP = -1003770413249
