@@ -130,8 +130,7 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def scheduler(context):
     global sinal_ativo
 
-    if sinal_ativo:
-        return
+    sinal_ativo = False
 
     if dentro_horario(FREE_HORAS):
         await enviar_sinal(context, CANAL_FREE)
@@ -203,5 +202,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-print("BOT NOVO A FUNCIONAR")
