@@ -12,23 +12,25 @@ CANAL_VIP = -1003770413249
 FREE_HORAS = [(10,11),(14,15),(21,22)]
 VIP_HORAS = [(9,10),(11,12),(15,16),(17,18),(20,21),(22,23)]
 
+# ---------- ESTADO ----------
+historico = []
 sinal_ativo = False
 em_gale = False
-
-historico = []
 ultimo_estado_horario = False
 
 ultimo_sinal_tempo = None
 ultimo_aviso_tempo = None
 ultimo_vip_tempo = None
 
-wins_azul = 0
-wins_vermelho = 0
-loss_azul = 0
-loss_vermelho = 0
-empates = 0
+# ---------- CONTADORES ----------
+wins_azul = wins_vermelho = wins_empate = 0
+wins_gale_azul = wins_gale_vermelho = wins_gale_empate = 0
+
+loss_azul = loss_vermelho = loss_empate = loss_gale = 0
+
 sequencia = 0
 
+# ---------- TEMPO ----------
 def agora():
     tz = pytz.timezone("Europe/Lisbon")
     return datetime.now(tz)
@@ -40,10 +42,10 @@ def dentro_horario(lista):
 def dentro_de_qualquer_horario():
     return dentro_horario(FREE_HORAS) or dentro_horario(VIP_HORAS)
 
+# ---------- LÓGICA ----------
 def analisar_jogada():
     if len(historico) < 2:
         return random.choice(["🔵 PLAYER","🔴 BANKER"])
-
     if historico[-1] == historico[-2]:
         return "🔵 PLAYER" if historico[-1] == "🔴" else "🔴 BANKER"
     else:
@@ -54,6 +56,7 @@ def atualizar_historico(cor):
     if len(historico) > 10:
         historico.pop(0)
 
+# ---------- BOTÕES ----------
 def botoes_iniciais():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ VITÓRIA AZUL", callback_data="win_azul"),
@@ -66,11 +69,13 @@ def botoes_iniciais():
 
 def botoes_gale():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ VITÓRIA AZUL", callback_data="win_azul"),
-         InlineKeyboardButton("✅ VITÓRIA VERMELHO", callback_data="win_vermelho")],
-        [InlineKeyboardButton("❌ DERROTA FINAL", callback_data="loss_final")]
+        [InlineKeyboardButton("✅ VITÓRIA AZUL", callback_data="win_gale_azul"),
+         InlineKeyboardButton("🟡 EMPATE APÓS GALE 1", callback_data="win_gale_empate"),
+         InlineKeyboardButton("✅ VITÓRIA VERMELHO", callback_data="win_gale_vermelho")],
+        [InlineKeyboardButton("❌ DERROTA FINAL", callback_data="loss_gale")]
     ])
 
+# ---------- SINAL ----------
 async def enviar_sinal(context, canal):
     global sinal_ativo, ultimo_sinal_tempo
 
@@ -87,80 +92,123 @@ async def enviar_sinal(context, canal):
     sinal_ativo = True
     ultimo_sinal_tempo = agora()
 
-async def enviar_aviso(context):
-    if ultimo_sinal_tempo and (agora() - ultimo_sinal_tempo).seconds < 120:
-        return
-
-    msg = """⚠️ JOGO RESPONSÁVEL
-
-🔞 Proibido menores de 18 anos
-💰 Não jogue dinheiro que não pode perder
-📊 Use gestão de banca
-
-Jogue com responsabilidade."""
-
-    await context.bot.send_message(chat_id=CANAL_FREE, text=msg)
-    await context.bot.send_message(chat_id=CANAL_VIP, text=msg)
-
-async def enviar_vip(context):
-    if not dentro_horario(FREE_HORAS):
-        return
-
-    if ultimo_sinal_tempo and (agora() - ultimo_sinal_tempo).seconds < 120:
-        return
-
-    msg = """🚀 ACESSO VIP
-
-🔥 Sinais exclusivos
-📈 Maior assertividade
-💎 Resultados consistentes
-
-👉 Entra no VIP e leva o jogo a outro nível"""
-
-    await context.bot.send_message(chat_id=CANAL_FREE, text=msg)
-
+# ---------- CALLBACK ----------
 async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global sinal_ativo, sequencia
+    global sinal_ativo, em_gale, sequencia
+    global wins_azul, wins_vermelho, wins_empate
+    global wins_gale_azul, wins_gale_vermelho, wins_gale_empate
+    global loss_azul, loss_vermelho, loss_empate, loss_gale
 
     q = update.callback_query
     await q.answer()
 
+    # VITÓRIAS NORMAIS
     if q.data == "win_azul":
         atualizar_historico("🔵")
+        wins_azul += 1
         sequencia += 1
         await q.message.reply_text(f"✅ VITÓRIA AZUL\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
         sinal_ativo = False
 
     elif q.data == "win_vermelho":
         atualizar_historico("🔴")
+        wins_vermelho += 1
         sequencia += 1
         await q.message.reply_text(f"✅ VITÓRIA VERMELHO\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
         sinal_ativo = False
 
+    elif q.data == "empate":
+        wins_empate += 1
+        sequencia += 1
+        await q.message.reply_text(f"🟡 VITÓRIA NO EMPATE\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
+        sinal_ativo = False
+
+    # DERROTAS NORMAIS
     elif q.data == "loss_azul":
-        atualizar_historico("🔴")
+        loss_azul += 1
         sequencia = 0
         await q.message.reply_text("❌ DERROTA AZUL")
         sinal_ativo = False
 
     elif q.data == "loss_vermelho":
-        atualizar_historico("🔵")
+        loss_vermelho += 1
         sequencia = 0
         await q.message.reply_text("❌ DERROTA VERMELHO")
         sinal_ativo = False
 
-    elif q.data == "loss_final":
+    # GALE
+    elif q.data == "gale":
+        em_gale = True
+        await q.message.reply_text("⚠️ FAZER GALE 1", reply_markup=botoes_gale())
+
+    elif q.data == "win_gale_azul":
+        wins_gale_azul += 1
+        sequencia += 1
+        await q.message.reply_text(f"✅ VITÓRIA AZUL (GALE)\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
+        sinal_ativo = False
+
+    elif q.data == "win_gale_vermelho":
+        wins_gale_vermelho += 1
+        sequencia += 1
+        await q.message.reply_text(f"✅ VITÓRIA VERMELHO (GALE)\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
+        sinal_ativo = False
+
+    elif q.data == "win_gale_empate":
+        wins_gale_empate += 1
+        sequencia += 1
+        await q.message.reply_text(f"🟡 VITÓRIA NO EMPATE (GALE)\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
+        sinal_ativo = False
+
+    elif q.data == "loss_gale":
+        loss_gale += 1
         sequencia = 0
         await q.message.reply_text("❌ DERROTA FINAL")
         sinal_ativo = False
 
-    elif q.data == "empate":
-        await q.message.reply_text("🟡 EMPATE")
-        sinal_ativo = False
+# ---------- RELATÓRIO ----------
+def gerar_relatorio():
+    total_wins = (wins_azul + wins_vermelho + wins_empate +
+                  wins_gale_azul + wins_gale_vermelho + wins_gale_empate)
 
-    elif q.data == "gale":
-        await q.message.reply_text("⚠️ FAZER GALE", reply_markup=botoes_gale())
+    total_loss = loss_azul + loss_vermelho + loss_empate + loss_gale
+    total = total_wins + total_loss
 
+    if total == 0:
+        return "Sem dados hoje."
+
+    assertividade = int((total_wins / total) * 100)
+
+    return f"""📊 SINAIS DO DIA FINALIZADOS
+
+🔵 Vitórias Azul: {wins_azul}
+🔴 Vitórias Vermelho: {wins_vermelho}
+🟡 Vitórias Empate: {wins_empate}
+
+🔥 GALE 1:
+🔵 Azul: {wins_gale_azul}
+🟡 Empate: {wins_gale_empate}
+🔴 Vermelho: {wins_gale_vermelho}
+
+❌ DERROTAS:
+🔵 Azul: {loss_azul}
+🔴 Vermelho: {loss_vermelho}
+🟡 Empate: {loss_empate}
+⚠️ Após Gale: {loss_gale}
+
+📈 Assertividade: {assertividade}%
+
+🌙 Boa noite a todos
+Amanhã estaremos de volta com mais sinais
+"""
+
+# ---------- JOBS ----------
+async def relatorio_free(context):
+    await context.bot.send_message(chat_id=CANAL_FREE, text=gerar_relatorio())
+
+async def relatorio_vip(context):
+    await context.bot.send_message(chat_id=CANAL_VIP, text=gerar_relatorio())
+
+# ---------- SCHEDULER ----------
 async def scheduler(context):
     global sinal_ativo, historico, ultimo_estado_horario
 
@@ -177,16 +225,18 @@ async def scheduler(context):
         elif dentro_horario(VIP_HORAS):
             await enviar_sinal(context, CANAL_VIP)
 
+# ---------- MAIN ----------
 def main():
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CallbackQueryHandler(callback))
 
     app.job_queue.run_repeating(scheduler, interval=240, first=5)
-    app.job_queue.run_repeating(enviar_aviso, interval=3600, first=600)
-    app.job_queue.run_repeating(enviar_vip, interval=1800, first=900)
 
-    print("🔥 BOT ATIVO")
+    app.job_queue.run_daily(relatorio_free, time=time(22,10))
+    app.job_queue.run_daily(relatorio_vip, time=time(23,10))
+
+    print("🔥 BOT PROFISSIONAL ATIVO")
 
     app.run_polling()
 
