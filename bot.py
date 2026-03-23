@@ -14,39 +14,14 @@ VIP_HORAS = [(9,10),(11,12),(15,16),(17,18),(20,21),(22,23)]
 
 # ---------- ESTADO ----------
 historico = []
-sinal_ativo = False
-em_gale = False
-ultimo_sinal_tempo = None
-timeout_segundos = 90
-ultimo_horario = None
+sequencia = 0
+ultimo_sinal_timestamp = 0
+intervalo_sinal = 246  # 🔥 NOVO TIMING FIXO
 
 # ---------- CONTADORES ----------
 wins_azul = wins_vermelho = wins_empate = 0
 wins_gale_azul = wins_gale_vermelho = wins_gale_empate = 0
 loss_azul = loss_vermelho = loss_empate = loss_gale = 0
-
-sequencia = 0
-
-# ---------- MENSAGENS ----------
-mensagem_credibilidade = """⚠️ INFORMAÇÃO IMPORTANTE
-
-Não estamos associados a nenhuma casa de apostas.
-
-Aposte com responsabilidade.
-
-🔞 Proibido para menores de 18 anos.
-
-📩 VIP: @bacbosinaisdiarios
-"""
-
-mensagem_vip = """🔥 ACESSO VIP DISPONÍVEL
-
-✔️ Mais sinais
-✔️ Mais horários
-✔️ Melhor acompanhamento
-
-📩 Fala comigo: @bacbosinaisdiarios
-"""
 
 # ---------- TEMPO ----------
 def agora():
@@ -59,21 +34,6 @@ def dentro_horario(lista):
         if i <= h < f:
             return True, i
     return False, None
-
-# ---------- RESET ----------
-def resetar_estado():
-    global historico, sequencia, sinal_ativo, em_gale
-    historico.clear()
-    sequencia = 0
-    sinal_ativo = False
-    em_gale = False
-
-# ---------- TIMEOUT ----------
-def verificar_timeout():
-    global sinal_ativo
-    if sinal_ativo and ultimo_sinal_tempo:
-        if (agora() - ultimo_sinal_tempo).total_seconds() > timeout_segundos:
-            sinal_ativo = False
 
 # ---------- LÓGICA ----------
 def analisar_jogada():
@@ -110,10 +70,7 @@ def botoes_gale():
 
 # ---------- SINAL ----------
 async def enviar_sinal(context, canal):
-    global sinal_ativo, ultimo_sinal_tempo
-
-    if sinal_ativo:
-        return
+    global ultimo_sinal_timestamp
 
     cor = analisar_jogada()
 
@@ -125,12 +82,11 @@ async def enviar_sinal(context, canal):
 
     await context.bot.send_message(chat_id=canal, text=msg, reply_markup=botoes_iniciais())
 
-    sinal_ativo = True
-    ultimo_sinal_tempo = agora()
+    ultimo_sinal_timestamp = agora().timestamp()
 
 # ---------- CALLBACK ----------
 async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global sinal_ativo, em_gale, sequencia
+    global sequencia
     global wins_azul, wins_vermelho, wins_empate
     global wins_gale_azul, wins_gale_vermelho, wins_gale_empate
     global loss_azul, loss_vermelho, loss_empate, loss_gale
@@ -138,79 +94,55 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
-    if not sinal_ativo:
-        return
-
     if q.data == "win_azul":
         atualizar_historico("🔵")
         wins_azul += 1
         sequencia += 1
-        await q.message.reply_text(f"✅ VITÓRIA AZUL\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
-        sinal_ativo = False
+        await q.message.reply_text(f"✅ VITÓRIA AZUL\n🔥 {sequencia} seguidas")
 
     elif q.data == "win_vermelho":
         atualizar_historico("🔴")
         wins_vermelho += 1
         sequencia += 1
-        await q.message.reply_text(f"✅ VITÓRIA VERMELHO\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
-        sinal_ativo = False
+        await q.message.reply_text(f"✅ VITÓRIA VERMELHO\n🔥 {sequencia} seguidas")
 
     elif q.data == "empate":
         wins_empate += 1
         sequencia += 1
-        await q.message.reply_text(f"🟡 VITÓRIA NO EMPATE\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
-        sinal_ativo = False
+        await q.message.reply_text(f"🟡 EMPATE\n🔥 {sequencia} seguidas")
 
     elif q.data in ["loss_azul","loss_vermelho"]:
         sequencia = 0
         await q.message.reply_text("❌ DERROTA")
-        sinal_ativo = False
 
     elif q.data == "gale":
-        em_gale = True
-        await q.message.reply_text("⚠️ FAZER GALE 1", reply_markup=botoes_gale())
+        await q.message.reply_text("⚠️ GALE 1", reply_markup=botoes_gale())
 
     elif "win_gale" in q.data:
         sequencia += 1
-        await q.message.reply_text(f"🔥 VITÓRIA NO GALE\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
-        sinal_ativo = False
+        await q.message.reply_text(f"🔥 WIN GALE\n🔥 {sequencia} seguidas")
 
     elif q.data == "loss_gale":
         loss_gale += 1
         sequencia = 0
         await q.message.reply_text("❌ DERROTA FINAL")
-        sinal_ativo = False
-
-# ---------- AUTO MENSAGENS ----------
-async def enviar_credibilidade(context):
-    if not sinal_ativo:
-        await context.bot.send_message(chat_id=CANAL_FREE, text=mensagem_credibilidade)
-        await context.bot.send_message(chat_id=CANAL_VIP, text=mensagem_credibilidade)
-
-async def enviar_vip(context):
-    if not sinal_ativo:
-        await context.bot.send_message(chat_id=CANAL_FREE, text=mensagem_vip)
 
 # ---------- SCHEDULER ----------
 async def scheduler(context):
-    global ultimo_horario
+    global ultimo_sinal_timestamp
 
-    verificar_timeout()
+    dentro_free, _ = dentro_horario(FREE_HORAS)
+    dentro_vip, _ = dentro_horario(VIP_HORAS)
 
-    dentro_free, h_free = dentro_horario(FREE_HORAS)
-    dentro_vip, h_vip = dentro_horario(VIP_HORAS)
+    agora_ts = agora().timestamp()
 
-    horario_atual = h_free if dentro_free else h_vip
+    if agora_ts - ultimo_sinal_timestamp < intervalo_sinal:
+        return
 
-    if horario_atual != ultimo_horario and horario_atual is not None:
-        resetar_estado()
-        ultimo_horario = horario_atual
-
-    if not sinal_ativo:
-        if dentro_free:
-            await enviar_sinal(context, CANAL_FREE)
-        elif dentro_vip:
-            await enviar_sinal(context, CANAL_VIP)
+    if dentro_free:
+        await enviar_sinal(context, CANAL_FREE)
+    elif dentro_vip:
+        await enviar_sinal(context, CANAL_VIP)
 
 # ---------- MAIN ----------
 def main():
@@ -218,16 +150,9 @@ def main():
 
     app.add_handler(CallbackQueryHandler(callback))
 
-    app.job_queue.run_repeating(scheduler, interval=240, first=5)
+    app.job_queue.run_repeating(scheduler, interval=5, first=5)
 
-    # mensagens automáticas
-    app.job_queue.run_daily(enviar_credibilidade, time=time(12,0))
-    app.job_queue.run_daily(enviar_credibilidade, time=time(18,0))
-
-    app.job_queue.run_daily(enviar_vip, time=time(13,0))
-    app.job_queue.run_daily(enviar_vip, time=time(19,0))
-
-    print("🔥 BOT FINAL ATIVO")
+    print("🔥 BOT COM TIMING FIXO ATIVO")
 
     app.run_polling()
 
