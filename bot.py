@@ -15,8 +15,12 @@ VIP_HORAS = [(9,10),(11,12),(15,16),(17,18),(20,21),(22,23)]
 # ---------- ESTADO ----------
 historico = []
 sequencia = 0
+
 ultimo_sinal_timestamp = 0
-intervalo_sinal = 246  # 🔥 NOVO TIMING FIXO
+intervalo_sinal = 246  # 🔥 timing fixo
+
+# 🔒 CONTROLO ANTI-DUPLICAÇÃO
+bloqueio_envio = False
 
 # ---------- CONTADORES ----------
 wins_azul = wins_vermelho = wins_empate = 0
@@ -32,8 +36,8 @@ def dentro_horario(lista):
     h = agora().hour
     for i,f in lista:
         if i <= h < f:
-            return True, i
-    return False, None
+            return True
+    return False
 
 # ---------- LÓGICA ----------
 def analisar_jogada():
@@ -70,7 +74,12 @@ def botoes_gale():
 
 # ---------- SINAL ----------
 async def enviar_sinal(context, canal):
-    global ultimo_sinal_timestamp
+    global ultimo_sinal_timestamp, bloqueio_envio
+
+    if bloqueio_envio:
+        return
+
+    bloqueio_envio = True  # 🔒 trava imediatamente
 
     cor = analisar_jogada()
 
@@ -129,20 +138,21 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------- SCHEDULER ----------
 async def scheduler(context):
-    global ultimo_sinal_timestamp
-
-    dentro_free, _ = dentro_horario(FREE_HORAS)
-    dentro_vip, _ = dentro_horario(VIP_HORAS)
+    global bloqueio_envio
 
     agora_ts = agora().timestamp()
 
-    if agora_ts - ultimo_sinal_timestamp < intervalo_sinal:
-        return
+    dentro_free = dentro_horario(FREE_HORAS)
+    dentro_vip = dentro_horario(VIP_HORAS)
 
-    if dentro_free:
-        await enviar_sinal(context, CANAL_FREE)
-    elif dentro_vip:
-        await enviar_sinal(context, CANAL_VIP)
+    if agora_ts - ultimo_sinal_timestamp >= intervalo_sinal:
+
+        if dentro_free:
+            await enviar_sinal(context, CANAL_FREE)
+        elif dentro_vip:
+            await enviar_sinal(context, CANAL_VIP)
+
+        bloqueio_envio = False  # 🔓 desbloqueia só após ciclo completo
 
 # ---------- MAIN ----------
 def main():
@@ -150,11 +160,11 @@ def main():
 
     app.add_handler(CallbackQueryHandler(callback))
 
-    app.job_queue.run_repeating(scheduler, interval=5, first=5)
+    app.job_queue.run_repeating(scheduler, interval=1, first=1)
 
-    print("🔥 BOT COM TIMING FIXO ATIVO")
+    print("🔥 BOT FINAL SEM DUPLICAÇÃO ATIVO")
 
     app.run_polling()
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     main()
