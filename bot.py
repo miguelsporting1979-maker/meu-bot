@@ -16,19 +16,37 @@ VIP_HORAS = [(9,10),(11,12),(15,16),(17,18),(20,21),(22,23)]
 historico = []
 sinal_ativo = False
 em_gale = False
-
 ultimo_sinal_tempo = None
 timeout_segundos = 90
-
 ultimo_horario = None
 
 # ---------- CONTADORES ----------
 wins_azul = wins_vermelho = wins_empate = 0
 wins_gale_azul = wins_gale_vermelho = wins_gale_empate = 0
-
 loss_azul = loss_vermelho = loss_empate = loss_gale = 0
 
 sequencia = 0
+
+# ---------- MENSAGENS ----------
+mensagem_credibilidade = """⚠️ INFORMAÇÃO IMPORTANTE
+
+Não estamos associados a nenhuma casa de apostas.
+
+Aposte com responsabilidade.
+
+🔞 Proibido para menores de 18 anos.
+
+📩 VIP: @bacbosinaisdiarios
+"""
+
+mensagem_vip = """🔥 ACESSO VIP DISPONÍVEL
+
+✔️ Mais sinais
+✔️ Mais horários
+✔️ Melhor acompanhamento
+
+📩 Fala comigo: @bacbosinaisdiarios
+"""
 
 # ---------- TEMPO ----------
 def agora():
@@ -45,7 +63,6 @@ def dentro_horario(lista):
 # ---------- RESET ----------
 def resetar_estado():
     global historico, sequencia, sinal_ativo, em_gale
-
     historico.clear()
     sequencia = 0
     sinal_ativo = False
@@ -54,7 +71,6 @@ def resetar_estado():
 # ---------- TIMEOUT ----------
 def verificar_timeout():
     global sinal_ativo
-
     if sinal_ativo and ultimo_sinal_tempo:
         if (agora() - ultimo_sinal_tempo).total_seconds() > timeout_segundos:
             sinal_ativo = False
@@ -125,7 +141,6 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not sinal_ativo:
         return
 
-    # VITÓRIAS
     if q.data == "win_azul":
         atualizar_historico("🔵")
         wins_azul += 1
@@ -146,13 +161,11 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(f"🟡 VITÓRIA NO EMPATE\n🔥 VITÓRIAS SEGUIDAS: {sequencia}")
         sinal_ativo = False
 
-    # DERROTAS
     elif q.data in ["loss_azul","loss_vermelho"]:
         sequencia = 0
         await q.message.reply_text("❌ DERROTA")
         sinal_ativo = False
 
-    # GALE
     elif q.data == "gale":
         em_gale = True
         await q.message.reply_text("⚠️ FAZER GALE 1", reply_markup=botoes_gale())
@@ -167,6 +180,16 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sequencia = 0
         await q.message.reply_text("❌ DERROTA FINAL")
         sinal_ativo = False
+
+# ---------- AUTO MENSAGENS ----------
+async def enviar_credibilidade(context):
+    if not sinal_ativo:
+        await context.bot.send_message(chat_id=CANAL_FREE, text=mensagem_credibilidade)
+        await context.bot.send_message(chat_id=CANAL_VIP, text=mensagem_credibilidade)
+
+async def enviar_vip(context):
+    if not sinal_ativo:
+        await context.bot.send_message(chat_id=CANAL_FREE, text=mensagem_vip)
 
 # ---------- SCHEDULER ----------
 async def scheduler(context):
@@ -197,7 +220,14 @@ def main():
 
     app.job_queue.run_repeating(scheduler, interval=240, first=5)
 
-    print("🔥 BOT ATIVO E ESTÁVEL")
+    # mensagens automáticas
+    app.job_queue.run_daily(enviar_credibilidade, time=time(12,0))
+    app.job_queue.run_daily(enviar_credibilidade, time=time(18,0))
+
+    app.job_queue.run_daily(enviar_vip, time=time(13,0))
+    app.job_queue.run_daily(enviar_vip, time=time(19,0))
+
+    print("🔥 BOT FINAL ATIVO")
 
     app.run_polling()
 
