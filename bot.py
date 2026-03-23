@@ -17,10 +17,11 @@ historico = []
 sequencia = 0
 
 ultimo_sinal_timestamp = 0
-intervalo_sinal = 246  # 🔥 timing fixo
+intervalo_sinal = 246
 
-# 🔒 CONTROLO ANTI-DUPLICAÇÃO
-bloqueio_envio = False
+# 🔒 ANTI DUPLICAÇÃO FORTE
+ultima_execucao_envio = 0
+janela_bloqueio = 5  # segundos
 
 # ---------- CONTADORES ----------
 wins_azul = wins_vermelho = wins_empate = 0
@@ -74,12 +75,15 @@ def botoes_gale():
 
 # ---------- SINAL ----------
 async def enviar_sinal(context, canal):
-    global ultimo_sinal_timestamp, bloqueio_envio
+    global ultimo_sinal_timestamp, ultima_execucao_envio
 
-    if bloqueio_envio:
+    agora_ts = agora().timestamp()
+
+    # 🔒 BLOQUEIO ANTI DUPLICAÇÃO
+    if agora_ts - ultima_execucao_envio < janela_bloqueio:
         return
 
-    bloqueio_envio = True  # 🔒 trava imediatamente
+    ultima_execucao_envio = agora_ts
 
     cor = analisar_jogada()
 
@@ -91,7 +95,7 @@ async def enviar_sinal(context, canal):
 
     await context.bot.send_message(chat_id=canal, text=msg, reply_markup=botoes_iniciais())
 
-    ultimo_sinal_timestamp = agora().timestamp()
+    ultimo_sinal_timestamp = agora_ts
 
 # ---------- CALLBACK ----------
 async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,21 +142,18 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------- SCHEDULER ----------
 async def scheduler(context):
-    global bloqueio_envio
-
     agora_ts = agora().timestamp()
 
     dentro_free = dentro_horario(FREE_HORAS)
     dentro_vip = dentro_horario(VIP_HORAS)
 
-    if agora_ts - ultimo_sinal_timestamp >= intervalo_sinal:
+    if agora_ts - ultimo_sinal_timestamp < intervalo_sinal:
+        return
 
-        if dentro_free:
-            await enviar_sinal(context, CANAL_FREE)
-        elif dentro_vip:
-            await enviar_sinal(context, CANAL_VIP)
-
-        bloqueio_envio = False  # 🔓 desbloqueia só após ciclo completo
+    if dentro_free:
+        await enviar_sinal(context, CANAL_FREE)
+    elif dentro_vip:
+        await enviar_sinal(context, CANAL_VIP)
 
 # ---------- MAIN ----------
 def main():
@@ -162,7 +163,7 @@ def main():
 
     app.job_queue.run_repeating(scheduler, interval=1, first=1)
 
-    print("🔥 BOT FINAL SEM DUPLICAÇÃO ATIVO")
+    print("🔥 BOT FINAL ANTI-DUPLICAÇÃO ATIVO")
 
     app.run_polling()
 
