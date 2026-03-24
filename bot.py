@@ -15,6 +15,7 @@ estado = {
     "canal": None,
     "dados": {},
     "aguardando": False,
+    "inicio_sinal": 0,
     "wins": 0,
     "loss": 0,
     "empates": 0
@@ -25,65 +26,33 @@ estado = {
 def menu():
     kb = InlineKeyboardMarkup()
 
-    # 🔵 AZUL CIMA
-    kb.row(
-        InlineKeyboardButton("🔵 C1", callback_data="azc_1"),
-        InlineKeyboardButton("🔵 C2", callback_data="azc_2"),
-        InlineKeyboardButton("🔵 C3", callback_data="azc_3")
-    )
-    kb.row(
-        InlineKeyboardButton("🔵 C4", callback_data="azc_4"),
-        InlineKeyboardButton("🔵 C5", callback_data="azc_5"),
-        InlineKeyboardButton("🔵 C6", callback_data="azc_6")
-    )
+    # AZUL CIMA
+    kb.row(InlineKeyboardButton("🔵 C1","azc_1"),InlineKeyboardButton("🔵 C2","azc_2"),InlineKeyboardButton("🔵 C3","azc_3"))
+    kb.row(InlineKeyboardButton("🔵 C4","azc_4"),InlineKeyboardButton("🔵 C5","azc_5"),InlineKeyboardButton("🔵 C6","azc_6"))
 
-    kb.row(InlineKeyboardButton("🔵────────────", callback_data="ignore"))
+    kb.row(InlineKeyboardButton("🔵────────","ignore"))
 
-    # 🔵 AZUL BAIXO
-    kb.row(
-        InlineKeyboardButton("🔵 B1", callback_data="azb_1"),
-        InlineKeyboardButton("🔵 B2", callback_data="azb_2"),
-        InlineKeyboardButton("🔵 B3", callback_data="azb_3")
-    )
-    kb.row(
-        InlineKeyboardButton("🔵 B4", callback_data="azb_4"),
-        InlineKeyboardButton("🔵 B5", callback_data="azb_5"),
-        InlineKeyboardButton("🔵 B6", callback_data="azb_6")
-    )
+    # AZUL BAIXO
+    kb.row(InlineKeyboardButton("🔵 B1","azb_1"),InlineKeyboardButton("🔵 B2","azb_2"),InlineKeyboardButton("🔵 B3","azb_3"))
+    kb.row(InlineKeyboardButton("🔵 B4","azb_4"),InlineKeyboardButton("🔵 B5","azb_5"),InlineKeyboardButton("🔵 B6","azb_6"))
 
-    kb.row(InlineKeyboardButton("🟡════════════", callback_data="ignore"))
+    kb.row(InlineKeyboardButton("🟡══════","ignore"))
 
-    # 🔴 VERMELHO CIMA
-    kb.row(
-        InlineKeyboardButton("🔴 C1", callback_data="vmc_1"),
-        InlineKeyboardButton("🔴 C2", callback_data="vmc_2"),
-        InlineKeyboardButton("🔴 C3", callback_data="vmc_3")
-    )
-    kb.row(
-        InlineKeyboardButton("🔴 C4", callback_data="vmc_4"),
-        InlineKeyboardButton("🔴 C5", callback_data="vmc_5"),
-        InlineKeyboardButton("🔴 C6", callback_data="vmc_6")
-    )
+    # VERMELHO CIMA
+    kb.row(InlineKeyboardButton("🔴 C1","vmc_1"),InlineKeyboardButton("🔴 C2","vmc_2"),InlineKeyboardButton("🔴 C3","vmc_3"))
+    kb.row(InlineKeyboardButton("🔴 C4","vmc_4"),InlineKeyboardButton("🔴 C5","vmc_5"),InlineKeyboardButton("🔴 C6","vmc_6"))
 
-    kb.row(InlineKeyboardButton("🔴────────────", callback_data="ignore"))
+    kb.row(InlineKeyboardButton("🔴────────","ignore"))
 
-    # 🔴 VERMELHO BAIXO
-    kb.row(
-        InlineKeyboardButton("🔴 B1", callback_data="vmb_1"),
-        InlineKeyboardButton("🔴 B2", callback_data="vmb_2"),
-        InlineKeyboardButton("🔴 B3", callback_data="vmb_3")
-    )
-    kb.row(
-        InlineKeyboardButton("🔴 B4", callback_data="vmb_4"),
-        InlineKeyboardButton("🔴 B5", callback_data="vmb_5"),
-        InlineKeyboardButton("🔴 B6", callback_data="vmb_6")
-    )
+    # VERMELHO BAIXO
+    kb.row(InlineKeyboardButton("🔴 B1","vmb_1"),InlineKeyboardButton("🔴 B2","vmb_2"),InlineKeyboardButton("🔴 B3","vmb_3"))
+    kb.row(InlineKeyboardButton("🔴 B4","vmb_4"),InlineKeyboardButton("🔴 B5","vmb_5"),InlineKeyboardButton("🔴 B6","vmb_6"))
 
-    kb.row(InlineKeyboardButton("⚫════════════", callback_data="ignore"))
+    kb.row(InlineKeyboardButton("⚫══════","ignore"))
 
     kb.row(
-        InlineKeyboardButton("🚨 AVARIA", callback_data="avaria"),
-        InlineKeyboardButton("🔄 TROCA", callback_data="troca")
+        InlineKeyboardButton("🚨 AVARIA","avaria"),
+        InlineKeyboardButton("🔄 TROCA","troca")
     )
 
     return kb
@@ -102,9 +71,10 @@ def calcular():
 
 # ================= SINAL ================= #
 
-def enviar():
+def enviar_sinal():
     estado["dados"] = {}
     estado["aguardando"] = True
+    estado["inicio_sinal"] = time.time()
 
     bot.send_message(estado["canal"], "📊 NOVA ENTRADA\n\n🔵 PLAYER\n🟡 PROTEGER EMPATE")
     bot.send_message(estado["canal"], "🎲 INSERE OS DADOS:", reply_markup=menu())
@@ -115,15 +85,20 @@ def ciclo():
     time.sleep(27)
 
     while estado["ativo"]:
+
+        # timeout de segurança (60s)
+        if estado["aguardando"]:
+            if time.time() - estado["inicio_sinal"] > 60:
+                estado["aguardando"] = False
+
         if not estado["aguardando"]:
-            enviar()
+            enviar_sinal()
 
         for _ in range(189):
             if not estado["ativo"]:
+                resumo()
                 return
             time.sleep(1)
-
-    resumo()
 
 # ================= CALLBACK ================= #
 
@@ -136,13 +111,13 @@ def cb(call):
 
     if data == "avaria":
         estado["ativo"] = False
-        bot.send_message(estado["canal"], "🚨 CICLO TERMINADO - AVARIA")
+        bot.send_message(estado["canal"], "🚨 CICLO TERMINADO (AVARIA)")
         resumo()
         return
 
     if data == "troca":
         estado["ativo"] = False
-        bot.send_message(estado["canal"], "🔄 CICLO TERMINADO - TROCA")
+        bot.send_message(estado["canal"], "🔄 CICLO TERMINADO (TROCA)")
         resumo()
         return
 
@@ -152,14 +127,17 @@ def cb(call):
     if len(estado["dados"]) == 4:
         res = calcular()
 
-        bot.send_message(estado["canal"], f"🎲 Resultado: {res}")
-
-        if res == "🟡":
-            estado["empates"] += 1
-        elif res == "🔵":
+        if res == "🔵":
             estado["wins"] += 1
-        else:
+            texto = "✅ Vitória"
+        elif res == "🔴":
             estado["loss"] += 1
+            texto = "❌ Derrota"
+        else:
+            estado["empates"] += 1
+            texto = "🟡 Empate"
+
+        bot.send_message(estado["canal"], f"🎲 Resultado: {res}\n{texto}")
 
         estado["aguardando"] = False
 
@@ -169,20 +147,21 @@ def cb(call):
 def startvip(msg):
     estado["ativo"] = True
     estado["canal"] = CANAL_VIP
+    bot.send_message(CANAL_VIP, "🚀 CICLO INICIADO (VIP)")
     threading.Thread(target=ciclo).start()
-    bot.send_message(msg.chat.id, "VIP iniciado")
 
 @bot.message_handler(commands=['startfree'])
 def startfree(msg):
     estado["ativo"] = True
     estado["canal"] = CANAL_FREE
+    bot.send_message(CANAL_FREE, "🚀 CICLO INICIADO (FREE)")
     threading.Thread(target=ciclo).start()
-    bot.send_message(msg.chat.id, "FREE iniciado")
 
 @bot.message_handler(commands=['stop'])
 def stop(msg):
     estado["ativo"] = False
-    bot.send_message(msg.chat.id, "STOP recebido")
+    bot.send_message(estado["canal"], "🛑 CICLO TERMINADO")
+    resumo()
 
 # ================= RESUMO ================= #
 
@@ -190,15 +169,15 @@ def resumo():
     total = estado["wins"] + estado["loss"]
     percent = int((estado["wins"]/total)*100) if total else 0
 
-    bot.send_message(estado["canal"], f"""📊 RESULTADO
+    bot.send_message(estado["canal"], f"""📊 RESULTADO DO CICLO
 
-✅ {estado["wins"]}
-🟡 {estado["empates"]}
-❌ {estado["loss"]}
+✅ Vitórias: {estado["wins"]}
+🟡 Empates: {estado["empates"]}
+❌ Derrotas: {estado["loss"]}
 
-📈 {percent}%""")
+📈 Assertividade: {percent}%""")
 
 # ================= START ================= #
 
-print("BOT LIMPO FINAL")
+print("BOT V3 FINAL")
 bot.infinity_polling()
