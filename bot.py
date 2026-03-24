@@ -2,7 +2,6 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import time
 import threading
-from datetime import datetime
 
 TOKEN = "8636159746:AAFwSj8NjWbJp0iJW_vHyyoQeK6-bE5zbag"
 
@@ -12,12 +11,12 @@ CANAL_VIP = -1003770413249
 bot = telebot.TeleBot(TOKEN)
 
 estado = {
-    "ciclo_ativo": False,
+    "ativo": False,
     "aguardando": False,
+    "canal": None,
     "dados": {},
-    "publico": True,
+    "entrada_atual": None,
     "gale": False,
-    "ultimo_sinal": None,
     "historico": [],
     "wins": 0,
     "loss": 0,
@@ -100,21 +99,36 @@ def analisar():
         return "🔴 BANKER"
     return "🔵 PLAYER"
 
-# ================= ENVIO ================= #
+# ================= SINAIS ================= #
 
-def enviar_sinal(canal):
+def enviar_sinal():
     entrada = analisar()
 
-    bot.send_message(canal, f"""📊 NOVA ENTRADA
+    bot.send_message(estado["canal"], f"""📊 NOVA ENTRADA
 
 {entrada}
 🟡 PROTEGER EMPATE
 """)
 
-    bot.send_message(canal, "🎲 INSERE OS DADOS:", reply_markup=menu_dados())
+    bot.send_message(estado["canal"], "🎲 INSERE OS DADOS:", reply_markup=menu_dados())
 
     estado["aguardando"] = True
-    estado["ultimo_sinal"] = canal
+    estado["entrada_atual"] = entrada
+    estado["dados"] = {}
+
+# ================= CICLO ================= #
+
+def ciclo():
+    time.sleep(27)  # delay inicial
+
+    while estado["ativo"]:
+
+        if not estado["aguardando"]:
+            enviar_sinal()
+
+        time.sleep(189)
+
+    resumo()
 
 # ================= CALLBACK ================= #
 
@@ -123,11 +137,15 @@ def callback(call):
     data = call.data
 
     if data == "avaria":
-        terminar_ciclo("🚨 CICLO TERMINADO\nNão apostar após avaria.")
+        estado["ativo"] = False
+        bot.send_message(estado["canal"], "🚨 CICLO TERMINADO - AVARIA")
+        resumo()
         return
 
     if data == "troca":
-        terminar_ciclo("🔄 CICLO TERMINADO\nNão apostar após troca.")
+        estado["ativo"] = False
+        bot.send_message(estado["canal"], "🔄 CICLO TERMINADO - TROCA")
+        resumo()
         return
 
     tipo, valor = data.split("_")
@@ -135,85 +153,67 @@ def callback(call):
 
     if len(estado["dados"]) == 4:
         resultado = calcular_resultado()
-        canal = estado["ultimo_sinal"]
 
-        bot.send_message(canal, f"🎲 Resultado: {resultado}")
+        bot.send_message(estado["canal"], f"🎲 Resultado: {resultado}")
 
         estado["historico"].append(resultado)
 
         if resultado == "🟡":
             estado["empates"] += 1
+
+        elif ("🔵" in estado["entrada_atual"] and resultado == "🔵") or \
+             ("🔴" in estado["entrada_atual"] and resultado == "🔴"):
+
+            estado["wins"] += 1
+            estado["gale"] = False
+
         else:
             if not estado["gale"]:
                 estado["gale"] = True
-                bot.send_message(canal, "⚠️ Gale 1 (opcional)")
+                bot.send_message(estado["canal"], "⚠️ Gale 1 (opcional)")
             else:
+                estado["loss"] += 1
                 estado["gale"] = False
-                if resultado == "🔵":
-                    estado["wins"] += 1
-                else:
-                    estado["loss"] += 1
 
-        estado["dados"] = {}
         estado["aguardando"] = False
 
-# ================= CICLO ================= #
+# ================= COMANDOS ================= #
 
-def ciclo(canal, duracao_min):
-    estado["ciclo_ativo"] = True
-    inicio = time.time()
+@bot.message_handler(commands=['startvip'])
+def start_vip(message):
+    estado["ativo"] = True
+    estado["canal"] = CANAL_VIP
+    threading.Thread(target=ciclo).start()
+    bot.send_message(CANAL_VIP, "🚀 CICLO INICIADO (VIP)")
 
-    while time.time() - inicio < duracao_min * 60:
-        if not estado["aguardando"]:
-            enviar_sinal(canal)
+@bot.message_handler(commands=['startfree'])
+def start_free(message):
+    estado["ativo"] = True
+    estado["canal"] = CANAL_FREE
+    threading.Thread(target=ciclo).start()
+    bot.send_message(CANAL_FREE, "🚀 CICLO INICIADO (FREE)")
 
-        time.sleep(30)
+@bot.message_handler(commands=['stop'])
+def stop(message):
+    estado["ativo"] = False
+    bot.send_message(estado["canal"], "🛑 CICLO PARADO")
 
-    resumo(canal)
+# ================= RESUMO ================= #
 
-def resumo(canal):
+def resumo():
     total = estado["wins"] + estado["loss"]
-
     percent = int((estado["wins"] / total) * 100) if total > 0 else 0
 
-    bot.send_message(canal, f"""📊 RESULTADO DO CICLO
+    bot.send_message(estado["canal"], f"""📊 RESULTADO DO CICLO
 
 ✅ Vitórias: {estado["wins"]}
-🤝 Empates: {estado["empates"]}
+🟡 Empates: {estado["empates"]}
 ❌ Derrotas: {estado["loss"]}
 
 📈 Assertividade: {percent}%
 """)
 
-# ================= HORÁRIOS (ANTI-FALHA) ================= #
-
-executados = []
-
-def scheduler():
-    while True:
-        agora = datetime.now().strftime("%H:%M")
-
-        horarios = [
-            ("09:00","FREE"), ("14:30","FREE"), ("17:30","FREE"),
-            ("10:00","VIP"), ("11:00","VIP"), ("15:30","VIP"),
-            ("16:30","VIP"), ("18:30","VIP"), ("20:00","VIP"), ("21:00","VIP")
-        ]
-
-        for hora, tipo in horarios:
-            if agora >= hora and hora not in executados:
-                executados.append(hora)
-
-                if tipo == "VIP":
-                    threading.Thread(target=ciclo, args=(CANAL_VIP,30)).start()
-                else:
-                    threading.Thread(target=ciclo, args=(CANAL_FREE,30)).start()
-
-        time.sleep(20)
-
 # ================= START ================= #
 
-threading.Thread(target=scheduler).start()
-
-print("🔥 BOT ATIVO")
-
+print("🔥 BOT MANUAL ATIVO")
 bot.infinity_polling()
