@@ -76,7 +76,6 @@ def enviar_sinal(canal):
 """
 
     bot.send_message(canal, msg)
-
     bot.send_message(canal, "🎲 INSERE OS DADOS:", reply_markup=menu_dados())
 
     estado["aguardando"] = True
@@ -88,7 +87,6 @@ def enviar_sinal(canal):
 def callback(call):
     data = call.data
 
-    # AVARIA / TROCA
     if data == "avaria":
         terminar_ciclo("🚨 CICLO TERMINADO\nNão apostar após avaria.")
         return
@@ -97,12 +95,12 @@ def callback(call):
         terminar_ciclo("🔄 CICLO TERMINADO\nNão apostar após troca de dados.")
         return
 
-    tipo, valor = data.split("_")
-    estado["dados"][tipo] = int(valor)
+    if "_" in data:
+        tipo, valor = data.split("_")
+        estado["dados"][tipo] = int(valor)
 
     if len(estado["dados"]) == 4:
         resultado = calcular_resultado()
-
         canal = estado["ultimo_sinal"]
 
         if estado["publico"]:
@@ -110,14 +108,13 @@ def callback(call):
 
         estado["historico"].append(resultado)
 
-        # Lógica Gale
         if not estado["gale"]:
             estado["gale"] = True
-            if resultado == "🟡":
-                estado["wins"] += 1
-            else:
+            if resultado != "🟡":
                 if estado["publico"]:
                     bot.send_message(canal, "⚠️ Gale 1 (opcional)")
+            else:
+                estado["wins"] += 1
         else:
             estado["gale"] = False
             if resultado == "🟡":
@@ -143,7 +140,7 @@ def ciclo(canal):
         if not estado["aguardando"]:
             enviar_sinal(canal)
 
-        time.sleep(246)  # tempo ajustado
+        time.sleep(246)
 
     resumo(canal)
 
