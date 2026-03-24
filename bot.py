@@ -76,8 +76,11 @@ def enviar_sinal():
     estado["aguardando"] = True
     estado["inicio_sinal"] = time.time()
 
-    bot.send_message(estado["canal"], "📊 NOVA ENTRADA\n\n🔵 PLAYER\n🟡 PROTEGER EMPATE")
-    bot.send_message(estado["canal"], "🎲 INSERE OS DADOS:", reply_markup=menu())
+    bot.send_message(
+        estado["canal"],
+        "📊 NOVA ENTRADA\n\n🔵 PLAYER\n🟡 PROTEGER EMPATE\n\n🎲 INSERE OS DADOS:",
+        reply_markup=menu()
+    )
 
 # ================= LOOP ================= #
 
@@ -86,7 +89,7 @@ def ciclo():
 
     while estado["ativo"]:
 
-        # timeout de segurança (60s)
+        # timeout segurança (se não responderes)
         if estado["aguardando"]:
             if time.time() - estado["inicio_sinal"] > 60:
                 estado["aguardando"] = False
@@ -179,5 +182,5 @@ def resumo():
 
 # ================= START ================= #
 
-print("BOT V3 FINAL")
+print("BOT V3.1 FINAL")
 bot.infinity_polling()
