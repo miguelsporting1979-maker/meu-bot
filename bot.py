@@ -3,6 +3,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import time
 import threading
 from datetime import datetime
+import pytz
 
 TOKEN = "8636159746:AAFwSj8NjWbJp0iJW_vHyyoQeK6-bE5zbag"
 
@@ -169,8 +170,10 @@ def resumo(canal):
 # ================= HORÁRIOS ================= #
 
 def scheduler():
+    tz = pytz.timezone("Europe/Lisbon")
+
     while True:
-        agora = datetime.now().strftime("%H:%M")
+        agora = datetime.now(tz).strftime("%H:%M")
 
         if agora in ["08:00","09:00","10:00","11:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"]:
             threading.Thread(target=ciclo, args=(CANAL_VIP,)).start()
