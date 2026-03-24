@@ -134,7 +134,7 @@ def ciclo(canal):
     estado["ciclo_ativo"] = True
     inicio = time.time()
 
-    while time.time() - inicio < 3600:
+    while time.time() - inicio < 1800:  # 30 minutos
         if not estado["ciclo_ativo"]:
             break
 
@@ -173,13 +173,21 @@ def scheduler():
     tz = pytz.timezone("Europe/Lisbon")
 
     while True:
-        agora = datetime.now(tz).strftime("%H:%M")
+        agora = datetime.now(tz)
+        hora = agora.strftime("%H:%M")
+        dia = agora.weekday()  # 0=segunda, 6=domingo
 
-        if agora in ["08:00","09:00","10:00","11:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"]:
-            threading.Thread(target=ciclo, args=(CANAL_VIP,)).start()
+        if dia == 6:
+            time.sleep(60)
+            continue
 
-        if agora in ["10:00","15:00","20:00"]:
+        # FREE
+        if hora in ["09:00","14:30","17:30"]:
             threading.Thread(target=ciclo, args=(CANAL_FREE,)).start()
+
+        # VIP
+        if hora in ["10:00","11:00","15:30","16:30","18:30","20:00","21:00"]:
+            threading.Thread(target=ciclo, args=(CANAL_VIP,)).start()
 
         time.sleep(60)
 
