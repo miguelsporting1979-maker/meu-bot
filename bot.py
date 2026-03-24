@@ -1,176 +1,192 @@
-import random
-import asyncio
-from datetime import datetime, time, timedelta
-import pytz
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import Application, CallbackQueryHandler, ContextTypes
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import time
+import threading
+from datetime import datetime
 
-TOKEN = "8667107306:AAHsMiPG9oslWJ-z2_VNPtZvptsnn7o70k4"
+TOKEN = "8636159746:AAFwSj8NjWbJp0iJW_vHyyoQeK6-bE5zbag"
 
 CANAL_FREE = -1003731784397
 CANAL_VIP = -1003770413249
 
-FREE_HORAS = [(10,11),(14,15),(21,22)]
-VIP_HORAS = [(9,10),(11,12),(15,16),(17,18),(20,21),(22,23)]
+bot = telebot.TeleBot(TOKEN)
 
-# ---------- CONFIG ----------
-intervalo_sinal = 246
+estado = {
+    "ciclo_ativo": False,
+    "aguardando": False,
+    "dados": {},
+    "publico": True,
+    "gale": False,
+    "ultimo_sinal": None,
+    "historico": [],
+    "wins": 0,
+    "loss": 0
+}
 
-# ---------- ESTADO ----------
-historico = []
-sequencia = 0
-base_timestamp = None
-contador_sinais = 0
+# ================= BOTÕES ================= #
 
-lock_envio = asyncio.Lock()
+def menu_dados():
+    kb = InlineKeyboardMarkup(row_width=3)
 
-# ---------- CONTADORES ----------
-wins = loss = 0
+    for i in range(1,7):
+        kb.add(InlineKeyboardButton(f"🔵 Cima {i}", callback_data=f"azc_{i}"))
+    for i in range(1,7):
+        kb.add(InlineKeyboardButton(f"🔵 Baixo {i}", callback_data=f"azb_{i}"))
+    for i in range(1,7):
+        kb.add(InlineKeyboardButton(f"🔴 Cima {i}", callback_data=f"vmc_{i}"))
+    for i in range(1,7):
+        kb.add(InlineKeyboardButton(f"🔴 Baixo {i}", callback_data=f"vmb_{i}"))
 
-# ---------- TEMPO ----------
-def agora():
-    tz = pytz.timezone("Europe/Lisbon")
-    return datetime.now(tz)
+    kb.add(
+        InlineKeyboardButton("🚨 AVARIA", callback_data="avaria"),
+        InlineKeyboardButton("🔄 TROCA", callback_data="troca")
+    )
 
-def dentro_horario(lista):
-    h = agora().hour
-    for i,f in lista:
-        if i <= h < f:
-            return True, i
-    return False, None
+    return kb
 
-# ---------- LÓGICA ----------
-def analisar_jogada():
-    if len(historico) < 2:
-        return random.choice(["🔵 PLAYER","🔴 BANKER"])
-    if historico[-1] == historico[-2]:
-        return "🔵 PLAYER" if historico[-1] == "🔴" else "🔴 BANKER"
-    return "🔵 PLAYER" if historico[-1] == "🔵" else "🔴 BANKER"
+# ================= LÓGICA ================= #
 
-def atualizar_historico(cor):
-    historico.append(cor)
-    if len(historico) > 10:
-        historico.pop(0)
+def calcular_resultado():
+    az = estado["dados"].get("azc",0) + estado["dados"].get("azb",0)
+    vm = estado["dados"].get("vmc",0) + estado["dados"].get("vmb",0)
 
-# ---------- BOTÕES ----------
-def botoes():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ AZUL", callback_data="win_azul"),
-         InlineKeyboardButton("✅ VERMELHO", callback_data="win_vermelho")],
-        [InlineKeyboardButton("❌ LOSS", callback_data="loss")],
-        [InlineKeyboardButton("🟡 EMPATE", callback_data="empate")]
-    ])
+    if az > vm:
+        return "🔵"
+    elif vm > az:
+        return "🔴"
+    else:
+        return "🟡"
 
-# ---------- SINAL ----------
-async def enviar_sinal(context, canal):
-    global base_timestamp, contador_sinais
+def analisar():
+    if len(estado["historico"]) < 2:
+        return "🔵 PLAYER"
+    if estado["historico"][-1] == estado["historico"][-2]:
+        return "🔴 BANKER"
+    return "🔵 PLAYER"
 
-    async with lock_envio:
+# ================= ENVIO ================= #
 
-        if base_timestamp is None:
-            base_timestamp = agora().timestamp()
-            contador_sinais = 0
+def enviar_sinal(canal):
+    entrada = analisar()
 
-        esperado = base_timestamp + (contador_sinais * intervalo_sinal)
-        agora_ts = agora().timestamp()
+    msg = f"""📊 NOVA ENTRADA
 
-        if agora_ts < esperado:
-            return
+{entrada}
+🟡 PROTEGER EMPATE
+"""
 
-        cor = analisar_jogada()
+    bot.send_message(canal, msg)
 
-        await context.bot.send_message(
-            chat_id=canal,
-            text=f"📊 NOVA ENTRADA\n\n{cor}\n🟡 PROTEGER EMPATE",
-            reply_markup=botoes()
-        )
+    bot.send_message(canal, "🎲 INSERE OS DADOS:", reply_markup=menu_dados())
 
-        contador_sinais += 1
+    estado["aguardando"] = True
+    estado["ultimo_sinal"] = canal
 
-# ---------- CALLBACK ----------
-async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global sequencia, wins, loss
+# ================= CALLBACK ================= #
 
-    q = update.callback_query
-    await q.answer()
+@bot.callback_query_handler(func=lambda call: True)
+def callback(call):
+    data = call.data
 
-    if "win" in q.data:
-        sequencia += 1
-        wins += 1
-        await q.message.reply_text(f"✅ WIN\n🔥 {sequencia} seguidas")
-
-    elif q.data == "empate":
-        sequencia += 1
-        await q.message.reply_text(f"🟡 EMPATE\n🔥 {sequencia} seguidas")
-
-    elif q.data == "loss":
-        sequencia = 0
-        loss += 1
-        await q.message.reply_text("❌ LOSS")
-
-# ---------- MENSAGENS AUTOMÁTICAS ----------
-async def avisos(context):
-    now = agora()
-    h = now.hour
-    m = now.minute
-
-    for lista, canal in [(FREE_HORAS, CANAL_FREE), (VIP_HORAS, CANAL_VIP)]:
-        for inicio, fim in lista:
-            # aviso 5 min antes
-            if h == inicio and m == 55:
-                await context.bot.send_message(canal, "🚀 VAMOS INICIAR O CICLO - FIQUEM ATENTOS")
-
-            # início
-            if h == inicio and m == 0:
-                await context.bot.send_message(canal, "🔥 SINAIS INICIADOS")
-
-            # fim
-            if h == fim and m == 0:
-                await context.bot.send_message(canal, "🛑 SESSÃO ENCERRADA")
-
-# ---------- RELATÓRIO ----------
-async def relatorio(context):
-    total = wins + loss
-    if total == 0:
+    # AVARIA / TROCA
+    if data == "avaria":
+        terminar_ciclo("🚨 CICLO TERMINADO\nNão apostar após avaria.")
         return
 
-    perc = int((wins / total) * 100)
+    if data == "troca":
+        terminar_ciclo("🔄 CICLO TERMINADO\nNão apostar após troca de dados.")
+        return
 
-    msg = f"""📊 RELATÓRIO DO DIA
+    tipo, valor = data.split("_")
+    estado["dados"][tipo] = int(valor)
 
-✅ Wins: {wins}
-❌ Loss: {loss}
+    if len(estado["dados"]) == 4:
+        resultado = calcular_resultado()
 
-📈 Assertividade: {perc}%"""
+        canal = estado["ultimo_sinal"]
 
-    await context.bot.send_message(CANAL_FREE, msg)
-    await context.bot.send_message(CANAL_VIP, msg)
+        if estado["publico"]:
+            bot.send_message(canal, f"🎲 Resultado: {resultado}")
 
-# ---------- SCHEDULER ----------
-async def scheduler(context):
-    dentro_free, _ = dentro_horario(FREE_HORAS)
-    dentro_vip, _ = dentro_horario(VIP_HORAS)
+        estado["historico"].append(resultado)
 
-    if dentro_free:
-        await enviar_sinal(context, CANAL_FREE)
-    elif dentro_vip:
-        await enviar_sinal(context, CANAL_VIP)
+        # Lógica Gale
+        if not estado["gale"]:
+            estado["gale"] = True
+            if resultado == "🟡":
+                estado["wins"] += 1
+            else:
+                if estado["publico"]:
+                    bot.send_message(canal, "⚠️ Gale 1 (opcional)")
+        else:
+            estado["gale"] = False
+            if resultado == "🟡":
+                estado["wins"] += 1
+            else:
+                estado["loss"] += 1
 
-    await avisos(context)
+            estado["publico"] = not estado["publico"]
 
-# ---------- MAIN ----------
-def main():
-    app = Application.builder().token(TOKEN).build()
+        estado["dados"] = {}
+        estado["aguardando"] = False
 
-    app.add_handler(CallbackQueryHandler(callback))
+# ================= CICLO ================= #
 
-    app.job_queue.run_repeating(scheduler, interval=1, first=1)
+def ciclo(canal):
+    estado["ciclo_ativo"] = True
+    inicio = time.time()
 
-    app.job_queue.run_daily(relatorio, time=time(23, 0))
+    while time.time() - inicio < 3600:
+        if not estado["ciclo_ativo"]:
+            break
 
-    print("🔥 BOT FINAL PROFISSIONAL ATIVO")
+        if not estado["aguardando"]:
+            enviar_sinal(canal)
 
-    app.run_polling()
+        time.sleep(246)  # tempo ajustado
 
-if __name__ == "__main__":
-    main()
+    resumo(canal)
+
+def terminar_ciclo(msg):
+    estado["ciclo_ativo"] = False
+    bot.send_message(CANAL_VIP, msg)
+    resumo(CANAL_VIP)
+
+def resumo(canal):
+    total = estado["wins"] + estado["loss"]
+
+    if total == 0:
+        bot.send_message(canal, "Sem dados no ciclo.")
+        return
+
+    percent = int((estado["wins"] / total) * 100)
+
+    bot.send_message(canal, f"""📊 RESULTADO DO CICLO
+
+✅ Vitórias: {estado["wins"]}
+❌ Derrotas: {estado["loss"]}
+
+📈 Assertividade: {percent}%
+""")
+
+# ================= HORÁRIOS ================= #
+
+def scheduler():
+    while True:
+        agora = datetime.now().strftime("%H:%M")
+
+        if agora in ["08:00","09:00","10:00","11:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"]:
+            threading.Thread(target=ciclo, args=(CANAL_VIP,)).start()
+
+        if agora in ["10:00","15:00","20:00"]:
+            threading.Thread(target=ciclo, args=(CANAL_FREE,)).start()
+
+        time.sleep(60)
+
+# ================= START ================= #
+
+threading.Thread(target=scheduler).start()
+
+print("🔥 BOT ATIVO")
+
+bot.infinity_polling()
