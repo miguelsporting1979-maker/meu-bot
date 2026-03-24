@@ -3,7 +3,6 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import time
 import threading
 from datetime import datetime
-import pytz
 
 TOKEN = "8636159746:AAFwSj8NjWbJp0iJW_vHyyoQeK6-bE5zbag"
 
@@ -27,18 +26,58 @@ estado = {
 # ================= BOTÕES ================= #
 
 def menu_dados():
-    kb = InlineKeyboardMarkup(row_width=3)
+    kb = InlineKeyboardMarkup()
 
-    for i in range(1,7):
-        kb.add(InlineKeyboardButton(f"🔵 Cima {i}", callback_data=f"azc_{i}"))
-    for i in range(1,7):
-        kb.add(InlineKeyboardButton(f"🔵 Baixo {i}", callback_data=f"azb_{i}"))
-    for i in range(1,7):
-        kb.add(InlineKeyboardButton(f"🔴 Cima {i}", callback_data=f"vmc_{i}"))
-    for i in range(1,7):
-        kb.add(InlineKeyboardButton(f"🔴 Baixo {i}", callback_data=f"vmb_{i}"))
+    # 🔵 AZUL CIMA
+    kb.row(
+        InlineKeyboardButton("🔵 Cima 1", callback_data="azc_1"),
+        InlineKeyboardButton("🔵 Cima 2", callback_data="azc_2"),
+        InlineKeyboardButton("🔵 Cima 3", callback_data="azc_3"),
+    )
+    kb.row(
+        InlineKeyboardButton("🔵 Cima 4", callback_data="azc_4"),
+        InlineKeyboardButton("🔵 Cima 5", callback_data="azc_5"),
+        InlineKeyboardButton("🔵 Cima 6", callback_data="azc_6"),
+    )
 
-    kb.add(
+    # 🔵 AZUL BAIXO
+    kb.row(
+        InlineKeyboardButton("🔵 Baixo 1", callback_data="azb_1"),
+        InlineKeyboardButton("🔵 Baixo 2", callback_data="azb_2"),
+        InlineKeyboardButton("🔵 Baixo 3", callback_data="azb_3"),
+    )
+    kb.row(
+        InlineKeyboardButton("🔵 Baixo 4", callback_data="azb_4"),
+        InlineKeyboardButton("🔵 Baixo 5", callback_data="azb_5"),
+        InlineKeyboardButton("🔵 Baixo 6", callback_data="azb_6"),
+    )
+
+    # 🔴 VERMELHO CIMA
+    kb.row(
+        InlineKeyboardButton("🔴 Cima 1", callback_data="vmc_1"),
+        InlineKeyboardButton("🔴 Cima 2", callback_data="vmc_2"),
+        InlineKeyboardButton("🔴 Cima 3", callback_data="vmc_3"),
+    )
+    kb.row(
+        InlineKeyboardButton("🔴 Cima 4", callback_data="vmc_4"),
+        InlineKeyboardButton("🔴 Cima 5", callback_data="vmc_5"),
+        InlineKeyboardButton("🔴 Cima 6", callback_data="vmc_6"),
+    )
+
+    # 🔴 VERMELHO BAIXO
+    kb.row(
+        InlineKeyboardButton("🔴 Baixo 1", callback_data="vmb_1"),
+        InlineKeyboardButton("🔴 Baixo 2", callback_data="vmb_2"),
+        InlineKeyboardButton("🔴 Baixo 3", callback_data="vmb_3"),
+    )
+    kb.row(
+        InlineKeyboardButton("🔴 Baixo 4", callback_data="vmb_4"),
+        InlineKeyboardButton("🔴 Baixo 5", callback_data="vmb_5"),
+        InlineKeyboardButton("🔴 Baixo 6", callback_data="vmb_6"),
+    )
+
+    # CONTROLOS
+    kb.row(
         InlineKeyboardButton("🚨 AVARIA", callback_data="avaria"),
         InlineKeyboardButton("🔄 TROCA", callback_data="troca")
     )
@@ -96,9 +135,8 @@ def callback(call):
         terminar_ciclo("🔄 CICLO TERMINADO\nNão apostar após troca de dados.")
         return
 
-    if "_" in data:
-        tipo, valor = data.split("_")
-        estado["dados"][tipo] = int(valor)
+    tipo, valor = data.split("_")
+    estado["dados"][tipo] = int(valor)
 
     if len(estado["dados"]) == 4:
         resultado = calcular_resultado()
@@ -111,11 +149,11 @@ def callback(call):
 
         if not estado["gale"]:
             estado["gale"] = True
-            if resultado != "🟡":
+            if resultado == "🟡":
+                estado["wins"] += 1
+            else:
                 if estado["publico"]:
                     bot.send_message(canal, "⚠️ Gale 1 (opcional)")
-            else:
-                estado["wins"] += 1
         else:
             estado["gale"] = False
             if resultado == "🟡":
@@ -130,18 +168,18 @@ def callback(call):
 
 # ================= CICLO ================= #
 
-def ciclo(canal):
+def ciclo(canal, duracao):
     estado["ciclo_ativo"] = True
     inicio = time.time()
 
-    while time.time() - inicio < 1800:  # 30 minutos
+    while time.time() - inicio < duracao:
         if not estado["ciclo_ativo"]:
             break
 
         if not estado["aguardando"]:
             enviar_sinal(canal)
 
-        time.sleep(246)
+        time.sleep(240)
 
     resumo(canal)
 
@@ -170,24 +208,16 @@ def resumo(canal):
 # ================= HORÁRIOS ================= #
 
 def scheduler():
-    tz = pytz.timezone("Europe/Lisbon")
-
     while True:
-        agora = datetime.now(tz)
-        hora = agora.strftime("%H:%M")
-        dia = agora.weekday()  # 0=segunda, 6=domingo
-
-        if dia == 6:
-            time.sleep(60)
-            continue
-
-        # FREE
-        if hora in ["09:00","14:30","17:30"]:
-            threading.Thread(target=ciclo, args=(CANAL_FREE,)).start()
+        agora = datetime.now().strftime("%H:%M")
 
         # VIP
-        if hora in ["10:00","11:00","15:30","16:30","18:30","20:00","21:00"]:
-            threading.Thread(target=ciclo, args=(CANAL_VIP,)).start()
+        if agora in ["10:00","11:00","15:30","16:30","18:30","20:00","21:00"]:
+            threading.Thread(target=ciclo, args=(CANAL_VIP, 1800)).start()
+
+        # FREE
+        if agora in ["09:00","14:30","17:30"]:
+            threading.Thread(target=ciclo, args=(CANAL_FREE, 1800)).start()
 
         time.sleep(60)
 
