@@ -1,7 +1,6 @@
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import time
-import threading
 
 TOKEN = "8636159746:AAFwSj8NjWbJp0iJW_vHyyoQeK6-bE5zbag"
 
@@ -16,35 +15,32 @@ estado = {
     "dados": {},
     "aguardando": False,
     "inicio_sinal": 0,
+    "proximo_sinal": 0,
     "wins": 0,
     "loss": 0,
     "empates": 0
 }
 
-# ================= BOTÕES ================= #
+# ================= MENU ================= #
 
 def menu():
     kb = InlineKeyboardMarkup()
 
     kb.row(InlineKeyboardButton("🔵 C1","azc_1"),InlineKeyboardButton("🔵 C2","azc_2"),InlineKeyboardButton("🔵 C3","azc_3"))
     kb.row(InlineKeyboardButton("🔵 C4","azc_4"),InlineKeyboardButton("🔵 C5","azc_5"),InlineKeyboardButton("🔵 C6","azc_6"))
-
-    kb.row(InlineKeyboardButton("🔵────────","ignore"))
+    kb.row(InlineKeyboardButton("🔵────","ignore"))
 
     kb.row(InlineKeyboardButton("🔵 B1","azb_1"),InlineKeyboardButton("🔵 B2","azb_2"),InlineKeyboardButton("🔵 B3","azb_3"))
     kb.row(InlineKeyboardButton("🔵 B4","azb_4"),InlineKeyboardButton("🔵 B5","azb_5"),InlineKeyboardButton("🔵 B6","azb_6"))
-
-    kb.row(InlineKeyboardButton("🟡══════","ignore"))
+    kb.row(InlineKeyboardButton("🟡====","ignore"))
 
     kb.row(InlineKeyboardButton("🔴 C1","vmc_1"),InlineKeyboardButton("🔴 C2","vmc_2"),InlineKeyboardButton("🔴 C3","vmc_3"))
     kb.row(InlineKeyboardButton("🔴 C4","vmc_4"),InlineKeyboardButton("🔴 C5","vmc_5"),InlineKeyboardButton("🔴 C6","vmc_6"))
-
-    kb.row(InlineKeyboardButton("🔴────────","ignore"))
+    kb.row(InlineKeyboardButton("🔴────","ignore"))
 
     kb.row(InlineKeyboardButton("🔴 B1","vmb_1"),InlineKeyboardButton("🔴 B2","vmb_2"),InlineKeyboardButton("🔴 B3","vmb_3"))
     kb.row(InlineKeyboardButton("🔴 B4","vmb_4"),InlineKeyboardButton("🔴 B5","vmb_5"),InlineKeyboardButton("🔴 B6","vmb_6"))
-
-    kb.row(InlineKeyboardButton("⚫══════","ignore"))
+    kb.row(InlineKeyboardButton("⚫====","ignore"))
 
     kb.row(
         InlineKeyboardButton("🚨 AVARIA","avaria"),
@@ -78,21 +74,26 @@ def enviar_sinal():
         reply_markup=menu()
     )
 
-# ================= CICLO ================= #
+# ================= LOOP PRINCIPAL ================= #
 
-def ciclo():
-    time.sleep(27)
+def loop():
+    while True:
 
-    while estado["ativo"]:
+        if estado["ativo"]:
 
-        if estado["aguardando"]:
-            if time.time() - estado["inicio_sinal"] > 60:
-                estado["aguardando"] = False
+            agora = time.time()
 
-        if not estado["aguardando"]:
-            enviar_sinal()
+            # timeout resposta
+            if estado["aguardando"]:
+                if agora - estado["inicio_sinal"] > 60:
+                    estado["aguardando"] = False
 
-        time.sleep(189)
+            # enviar sinal
+            if not estado["aguardando"] and agora >= estado["proximo_sinal"]:
+                enviar_sinal()
+                estado["proximo_sinal"] = agora + 189
+
+        time.sleep(1)
 
 # ================= CALLBACK ================= #
 
@@ -141,15 +142,15 @@ def cb(call):
 def startvip(msg):
     estado["ativo"] = True
     estado["canal"] = CANAL_VIP
+    estado["proximo_sinal"] = time.time() + 27
     bot.send_message(CANAL_VIP, "🚀 CICLO INICIADO (VIP)")
-    threading.Thread(target=ciclo, daemon=True).start()
 
 @bot.message_handler(commands=['startfree'])
 def startfree(msg):
     estado["ativo"] = True
     estado["canal"] = CANAL_FREE
+    estado["proximo_sinal"] = time.time() + 27
     bot.send_message(CANAL_FREE, "🚀 CICLO INICIADO (FREE)")
-    threading.Thread(target=ciclo, daemon=True).start()
 
 @bot.message_handler(commands=['stop'])
 def stop(msg):
@@ -173,5 +174,8 @@ def resumo():
 
 # ================= START ================= #
 
-print("BOT V3.2 FINAL")
+import threading
+threading.Thread(target=loop).start()
+
+print("BOT FINAL FUNCIONAL")
 bot.infinity_polling()
