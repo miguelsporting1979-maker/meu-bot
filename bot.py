@@ -26,25 +26,21 @@ estado = {
 def menu():
     kb = InlineKeyboardMarkup()
 
-    # AZUL CIMA
     kb.row(InlineKeyboardButton("🔵 C1","azc_1"),InlineKeyboardButton("🔵 C2","azc_2"),InlineKeyboardButton("🔵 C3","azc_3"))
     kb.row(InlineKeyboardButton("🔵 C4","azc_4"),InlineKeyboardButton("🔵 C5","azc_5"),InlineKeyboardButton("🔵 C6","azc_6"))
 
     kb.row(InlineKeyboardButton("🔵────────","ignore"))
 
-    # AZUL BAIXO
     kb.row(InlineKeyboardButton("🔵 B1","azb_1"),InlineKeyboardButton("🔵 B2","azb_2"),InlineKeyboardButton("🔵 B3","azb_3"))
     kb.row(InlineKeyboardButton("🔵 B4","azb_4"),InlineKeyboardButton("🔵 B5","azb_5"),InlineKeyboardButton("🔵 B6","azb_6"))
 
     kb.row(InlineKeyboardButton("🟡══════","ignore"))
 
-    # VERMELHO CIMA
     kb.row(InlineKeyboardButton("🔴 C1","vmc_1"),InlineKeyboardButton("🔴 C2","vmc_2"),InlineKeyboardButton("🔴 C3","vmc_3"))
     kb.row(InlineKeyboardButton("🔴 C4","vmc_4"),InlineKeyboardButton("🔴 C5","vmc_5"),InlineKeyboardButton("🔴 C6","vmc_6"))
 
     kb.row(InlineKeyboardButton("🔴────────","ignore"))
 
-    # VERMELHO BAIXO
     kb.row(InlineKeyboardButton("🔴 B1","vmb_1"),InlineKeyboardButton("🔴 B2","vmb_2"),InlineKeyboardButton("🔴 B3","vmb_3"))
     kb.row(InlineKeyboardButton("🔴 B4","vmb_4"),InlineKeyboardButton("🔴 B5","vmb_5"),InlineKeyboardButton("🔴 B6","vmb_6"))
 
@@ -82,14 +78,13 @@ def enviar_sinal():
         reply_markup=menu()
     )
 
-# ================= LOOP ================= #
+# ================= CICLO ================= #
 
 def ciclo():
     time.sleep(27)
 
     while estado["ativo"]:
 
-        # timeout segurança (se não responderes)
         if estado["aguardando"]:
             if time.time() - estado["inicio_sinal"] > 60:
                 estado["aguardando"] = False
@@ -97,11 +92,7 @@ def ciclo():
         if not estado["aguardando"]:
             enviar_sinal()
 
-        for _ in range(189):
-            if not estado["ativo"]:
-                resumo()
-                return
-            time.sleep(1)
+        time.sleep(189)
 
 # ================= CALLBACK ================= #
 
@@ -151,14 +142,14 @@ def startvip(msg):
     estado["ativo"] = True
     estado["canal"] = CANAL_VIP
     bot.send_message(CANAL_VIP, "🚀 CICLO INICIADO (VIP)")
-    threading.Thread(target=ciclo).start()
+    threading.Thread(target=ciclo, daemon=True).start()
 
 @bot.message_handler(commands=['startfree'])
 def startfree(msg):
     estado["ativo"] = True
     estado["canal"] = CANAL_FREE
     bot.send_message(CANAL_FREE, "🚀 CICLO INICIADO (FREE)")
-    threading.Thread(target=ciclo).start()
+    threading.Thread(target=ciclo, daemon=True).start()
 
 @bot.message_handler(commands=['stop'])
 def stop(msg):
@@ -182,5 +173,5 @@ def resumo():
 
 # ================= START ================= #
 
-print("BOT V3.1 FINAL")
+print("BOT V3.2 FINAL")
 bot.infinity_polling()
